@@ -4,30 +4,25 @@ Cross-platform prompt shortcuts for OpenClaw — type a trigger keyword to expan
 
 ## How It Works
 
-When you type `/翻譯 hello world` in any channel (Discord, Telegram, Slack, etc.), the plugin intercepts the message before it reaches the AI and injects your pre-written prompt as context:
+When you type `/translate hello world` in any channel (Discord, Telegram, etc.), the plugin intercepts the message via the `before_prompt_build` hook and injects your pre-written prompt as context before it reaches the AI:
 
 ```
 AI receives:
-"請將以下內容翻譯成繁體中文，保持原文語氣和格式：
+"Please translate the following to Traditional Chinese, preserving the original tone and format:
 
 hello world"
-
-(followed by the original: /翻譯 hello world)
 ```
 
 The prompt is **only injected when triggered** — zero context window cost when not in use.
 
+Telegram group commands with `@BotName` are also supported (e.g. `/translate@YourBot hello world`).
+
 ## Installation
 
-### Option 1: Symlink (Recommended for development)
-
-```bash
-ln -s /path/to/openclaw-prompt-shortcuts ~/.openclaw/extensions/prompt-shortcuts
-```
-
-### Option 2: Config load path
+### Option 1: Config load path
 
 Add to your `openclaw.json`:
+
 ```json
 {
   "plugins": {
@@ -38,9 +33,17 @@ Add to your `openclaw.json`:
 }
 ```
 
+### Option 2: Symlink
+
+```bash
+ln -s /path/to/openclaw-prompt-shortcuts ~/.openclaw/extensions/prompt-shortcuts
+```
+
 ## Configuration
 
-Add your shortcuts under `plugins.entries.prompt-shortcuts.config` in `openclaw.json`:
+### Adding Shortcuts
+
+Add shortcuts under `plugins.entries.prompt-shortcuts.config` in `openclaw.json`:
 
 ```json
 {
@@ -51,34 +54,24 @@ Add your shortcuts under `plugins.entries.prompt-shortcuts.config` in `openclaw.
         "config": {
           "shortcuts": [
             {
-              "trigger": "/翻譯",
-              "prompt": "請將以下內容翻譯成繁體中文，保持原文語氣和格式：\n\n{{input}}",
-              "description": "翻譯成繁體中文"
+              "trigger": "/translate",
+              "prompt": "Please translate the following to Traditional Chinese, preserving the original tone and format:\n\n{{input}}",
+              "description": "Translate to Traditional Chinese"
             },
             {
-              "trigger": "/摘要",
-              "prompt": "請針對以下內容，整理出 3-5 個重點摘要，使用繁體中文：\n\n{{input}}",
-              "description": "整理重點摘要"
-            },
-            {
-              "trigger": "/英文",
-              "prompt": "Please translate the following to English, maintaining the original tone:\n\n{{input}}",
-              "description": "Translate to English"
-            },
-            {
-              "trigger": "/改寫",
-              "prompt": "請將以下內容改寫成更專業正式的語氣：\n\n{{input}}",
-              "description": "專業語氣改寫"
+              "trigger": "/summarize",
+              "prompt": "Please summarize the following content into 3-5 key points:\n\n{{input}}",
+              "description": "Summarize key points"
             },
             {
               "trigger": "/debug",
-              "prompt": "請分析以下錯誤訊息，找出根本原因並提供解決方案：\n\n{{input}}",
-              "description": "除錯分析"
+              "prompt": "Please analyze the following error, identify the root cause, and suggest a fix:\n\n{{input}}",
+              "description": "Debug analysis"
             },
             {
               "trigger": "/lesson",
-              "prompt": "When processing this content:\n1. Use memory_store to save as category=fact (the raw knowledge)\n2. Use memory_store to save as category=decision (actionable takeaway)\n3. Confirm what was saved\n\nContent: {{input}}",
-              "description": "儲存為學習記錄"
+              "prompt": "Save the following as a lesson to memory:\n1. Use memory_store with category=fact, importance=0.85\n2. Use memory_store with category=decision, importance=0.9\n3. Use memory_recall to verify both are retrievable\n4. Reply with both memory IDs\n\nContent: {{input}}",
+              "description": "Save lesson to memory"
             }
           ]
         }
@@ -88,18 +81,63 @@ Add your shortcuts under `plugins.entries.prompt-shortcuts.config` in `openclaw.
 }
 ```
 
+Each shortcut requires:
+- `trigger` — The keyword (must start with `/`, auto-added if missing)
+- `prompt` — The prompt template. Use `{{input}}` as a placeholder for the user's text after the trigger
+
+Optional:
+- `description` — Shown in the `/shortcuts` listing
+
+### Telegram: Show Shortcuts in the `/` Menu
+
+To make your shortcuts appear in Telegram's autocomplete menu when users type `/`, add them to `channels.telegram.customCommands` in `openclaw.json`:
+
+> **Note:** Telegram command names only allow `a-z`, `0-9`, and `_` (max 32 characters). Non-ASCII triggers (e.g. `/翻譯`) need an ASCII alias in `customCommands`.
+
+```json
+{
+  "channels": {
+    "telegram": {
+      "customCommands": [
+        { "command": "translate", "description": "Translate to Traditional Chinese" },
+        { "command": "lesson",    "description": "Save lesson to memory" }
+      ]
+    }
+  }
+}
+```
+
+The command names in `customCommands` must match the triggers in your shortcuts config (without the `/`). After updating, restart the gateway:
+
+```bash
+systemctl --user restart openclaw-gateway
+```
+
 ## Commands
 
 - `/shortcuts` — List all configured prompt shortcuts
 
 ## Template Variables
 
-- `{{input}}` — Replaced with the user's text after the trigger keyword
+| Variable | Description |
+|----------|-------------|
+| `{{input}}` | Replaced with the user's text after the trigger keyword. Removed (and prompt trimmed) if no text follows the trigger. |
+
+## Matching Rules
+
+- Triggers are **case-insensitive**
+- Trigger must appear at the **start** of the message
+- Supports both `/trigger text` (prefix) and `/trigger` alone (exact)
+- Telegram group format `/trigger@BotName text` is automatically normalized
+- First matching shortcut wins
 
 ## Examples
 
-| You type | AI receives |
-|----------|-------------|
-| `/翻譯 hello world` | 請將以下內容翻譯成繁體中文... hello world |
-| `/lesson never deploy on Friday` | Store as lesson with memory_store... |
-| `/debug TypeError: Cannot read property 'x'` | 請分析以下錯誤... |
+| Input | AI receives |
+|-------|-------------|
+| `/translate hello world` | Translate prompt + "hello world" |
+| `/summarize long article...` | Summarize prompt + article text |
+| `/debug TypeError: ...` | Debug prompt + error message |
+| `/lesson never deploy on Friday` | Lesson prompt + the lesson |
+| `/translate@YourBot hello` | Same as `/translate hello` |
+| `/translate` (no text) | Translate prompt with `{{input}}` removed |

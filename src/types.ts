@@ -57,34 +57,51 @@ export function parseShortcuts(raw: unknown): PromptShortcut[] {
 }
 
 /**
+ * Extract the user's actual message from the prompt.
+ * OpenClaw wraps the user message with conversation metadata,
+ * so the actual user text is at the end of the prompt.
+ */
+function extractUserMessage(prompt: string): string {
+  const trimmed = prompt.trim();
+  // Find the last line(s) after the metadata block (ends with ```)
+  const closingBackticks = trimmed.lastIndexOf("```\n");
+  if (closingBackticks !== -1) {
+    return trimmed.slice(closingBackticks + 4).trim();
+  }
+  return trimmed;
+}
+
+/**
  * Match a user prompt against configured shortcuts.
  * Returns the expanded prompt as prependContext, or undefined if no match.
  *
  * Matching is case-insensitive for the trigger keyword.
- * The trigger must appear at the start of the prompt, optionally followed by user input.
+ * The trigger must appear at the start of the user message, optionally followed by user input.
  */
 export function matchShortcut(
   prompt: string,
   shortcuts: PromptShortcut[],
 ): { prependContext: string; matchedTrigger: string } | undefined {
-  const trimmed = prompt.trim();
-  if (!trimmed) {
+  const userMessage = extractUserMessage(prompt);
+  if (!userMessage) {
     return undefined;
   }
 
   for (const shortcut of shortcuts) {
     const trigger = shortcut.trigger.toLowerCase();
-    const promptLower = trimmed.toLowerCase();
+    // Normalize Telegram group command format: /trigger@BotName → /trigger
+    const normalizedMessage = userMessage.replace(/^(\/[^\s@]+)@\w+(\s|$)/, "$1$2");
+    const msgLower = normalizedMessage.toLowerCase();
 
     // Exact match (trigger only, no extra input)
-    if (promptLower === trigger) {
+    if (msgLower === trigger) {
       const expanded = shortcut.prompt.replace(/\{\{input\}\}/g, "").replace(/\n{3,}/g, "\n\n").trim();
       return { prependContext: expanded, matchedTrigger: shortcut.trigger };
     }
 
     // Prefix match (trigger + space + user input)
-    if (promptLower.startsWith(trigger + " ")) {
-      const userInput = trimmed.slice(trigger.length).trim();
+    if (msgLower.startsWith(trigger + " ")) {
+      const userInput = normalizedMessage.slice(trigger.length).trim();
       const expanded = shortcut.prompt.replace(/\{\{input\}\}/g, userInput);
       return { prependContext: expanded, matchedTrigger: shortcut.trigger };
     }

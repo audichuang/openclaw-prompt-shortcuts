@@ -134,6 +134,27 @@ describe("matchShortcut", () => {
     expect(result).toBeDefined();
     expect(result!.prependContext).toBe("請翻譯成繁體中文：\n\nhello");
   });
+
+  it("matches trigger wrapped in OpenClaw metadata", () => {
+    const wrapped = `Conversation info (untrusted metadata):\n\`\`\`json\n{"message_id":"123","sender_id":"456"}\n\`\`\`\n/翻譯 hello world`;
+    const result = matchShortcut(wrapped, shortcuts);
+    expect(result).toBeDefined();
+    expect(result!.matchedTrigger).toBe("/翻譯");
+    expect(result!.prependContext).toBe("請翻譯成繁體中文：\n\nhello world");
+  });
+
+  it("matches Telegram group command with @BotName suffix", () => {
+    const result = matchShortcut("/翻譯@AudiOpenClawBot hello world", shortcuts);
+    expect(result).toBeDefined();
+    expect(result!.matchedTrigger).toBe("/翻譯");
+    expect(result!.prependContext).toBe("請翻譯成繁體中文：\n\nhello world");
+  });
+
+  it("matches Telegram group command with @BotName and no input (exact)", () => {
+    const result = matchShortcut("/摘要@AudiOpenClawBot", shortcuts);
+    expect(result).toBeDefined();
+    expect(result!.matchedTrigger).toBe("/摘要");
+  });
 });
 
 // ─── formatShortcutsList ─────────────────────────────────────────────

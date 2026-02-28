@@ -1,0 +1,41 @@
+{
+  "id": "prompt-shortcuts",
+  "name": "Prompt Shortcuts",
+  "version": "1.0.0",
+  "description": "Cross-platform prompt shortcuts — type a trigger keyword to expand it into a full prompt before sending to the AI.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "shortcuts": {
+        "type": "array",
+        "description": "List of prompt shortcuts. Each shortcut maps a trigger keyword to a prompt template.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["trigger", "prompt"],
+          "properties": {
+            "trigger": {
+              "type": "string",
+              "description": "Trigger keyword (e.g. /翻譯). Must start with /."
+            },
+            "prompt": {
+              "type": "string",
+              "description": "Prompt template. Use {{input}} as placeholder for user-provided text after the trigger."
+            },
+            "description": {
+              "type": "string",
+              "description": "Human-readable description shown in /shortcuts listing."
+            }
+          }
+        }
+      }
+    }
+  },
+  "uiHints": {
+    "shortcuts": {
+      "label": "Prompt Shortcuts",
+      "help": "Define trigger keywords that expand into full prompts. Use {{input}} as placeholder."
+    }
+  }
+}

@@ -13,7 +13,6 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "openclaw": "^2026.2.26",
     "vitest": "^3.0.0"
   }
 }
